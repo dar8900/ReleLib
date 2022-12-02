@@ -1,72 +1,159 @@
 #include "ReleLib.h"
 
-
-void RELE_LIB::begin(uint8_t NumberOfRele)
+/**
+ * @brief Modifica lo stato del gpio
+ * 
+ */
+void ReleLib::_switchRele()
 {
-	nRele = NumberOfRele;
-	releStatus = new uint8_t [nRele];
-	if(!releStatus)
+	if(_setupDone)
 	{
-		return;
-	}
-	for(int ReleIndex = 0; ReleIndex < nRele; ReleIndex++)
-		releStatus[ReleIndex] = 0;
-	// releTimers = new uint32_t [nRele](0);
-	// oldReleTimer = new uint32_t [nRele](0);
-}
-
-void RELE_LIB::setReleStatus(uint8_t WichRele, uint8_t Status)
-{
-	if((Status != STATUS_OFF && Status != STATUS_ON) || (WichRele >= nRele))
-		return;
-	else
-	{
-		releStatus[WichRele] = Status;
+		_releStatus == RELE_ON ? digitalWrite(_relePin, HIGH) : digitalWrite(_relePin, LOW);
 	}
 }
 
-void RELE_LIB::turnAllRele(uint8_t Status)
+/**
+ * @brief Inizializza il gpio e la libria
+ * 
+ * @param int RelePin 
+ */
+void ReleLib::setup(int RelePin = -1)
 {
-	if(Status != STATUS_OFF && Status != STATUS_ON)
-		return;
-	for(int ReleIndex = 0; ReleIndex < nRele; ReleIndex++)
+	if(RelePin > 0)
 	{
-		releStatus[ReleIndex] = Status;
+		_relePin = RelePin;
+		pinMode(_relePin, OUTPUT);
+		_setupDone = true;
 	}
 }
 
-uint8_t RELE_LIB::getReleStatus(uint8_t WichRele)
+/**
+ * @brief Modifica il valore logico e fisico del relè
+ * 
+ * @param bool NewStatus 
+ */
+void ReleLib::switchStatus(bool NewStatus)
 {
-	if(WichRele >= nRele)
-		return 0;
-	else
-		return releStatus[WichRele];
-}
-
-void RELE_LIB::getAllreleStatus(uint8_t *StatusArray)
-{
-	for(int ReleIndex = 0; ReleIndex < nRele; ReleIndex++)
+	if(_setupDone)
 	{
-		if(StatusArray + ReleIndex != NULL)
+		if(NewStatus != _releStatus)
 		{
-			StatusArray[ReleIndex] = releStatus[ReleIndex];
+			_releStatus = NewStatus;
+			_switchRele();
+			_releStatus == RELE_ON ? _offTimer = 0 : _onTimer = 0;
 		}
-		else 
-			return;
 	}
 }
 
-void RELE_LIB::pulseRele(uint8_t RelePin, uint16_t PulseDelayMs, uint8_t EndStatus)
+/**
+ * @brief Modifica il valore logico e fisico del relè impostando il valore contrario 
+ * 			al valore attuale
+ * 
+ */
+void ReleLib::toggleStatus()
 {
-	if(EndStatus != STATUS_OFF && EndStatus != STATUS_ON)
-		return;
-	else
+	if(_setupDone)
 	{
-		if(EndStatus == STATUS_OFF)
-			digitalWrite(RelePin, STATUS_ON);
-		else
-			digitalWrite(RelePin, STATUS_OFF);
-		delay(PulseDelayMs);
-		digitalWrite(RelePin, EndStatus);
+		_releStatus = !_releStatus;
+		_switchRele();
+		_releStatus == RELE_ON ? _offTimer = 0 : _onTimer = 0;
+	}
+}
+
+/**
+ * @brief Ritorna il valore logico e fisico del relè
+ * 
+ * @return true 
+ * @return false 
+ */
+bool ReleLib::getStatus()
+{
+	bool ReleStat = false;
+	if(_setupDone)
+	{
+		ReleStat = _releStatus;		
+	}
+	return ReleStat;
+}
+
+/**
+ * @brief Ritorna il tempo in secondi in cui il relè rimane in stato eccitato,
+ * 			viene azzerato al cambio di stato
+ * 
+ * @return uint32_t OnTime
+ */
+uint32_t ReleLib::getOnTime()
+{
+	return (_onTimer / (1000 / _ENGINE_CYCLE));
+}
+
+/**
+ * @brief Ritorna il tempo in secondi in cui il relè rimane in stato diseccitato,
+ * 			viene azzerato al cambio di stato
+ * 
+ * @return uint32_t OffTime
+ */
+uint32_t ReleLib::getOffTime()
+{
+	return (_offTimer / (1000 / _ENGINE_CYCLE));
+}
+
+/**
+ * @brief Imposta il cambio di stato dopo x ms 
+ * 
+ * @param uint16_t Delay 
+ * @param bool NewStatus 
+ */
+void ReleLib::setDelayedSwitch(uint16_t Delay, bool NewStatus)
+{
+	if(_setupDone)
+	{
+		if(Delay >= _ENGINE_CYCLE && Delay != _delaySwitchTimeout)
+		{
+			_delaySwitchTimeout = Delay;
+			_delayedSwitchTimer = 0;
+			_delayedSwitchEnabled = true;
+			_delayedSwitchNewStatus = NewStatus;
+		}
+	}
+}
+
+/**
+ * @brief Engine che si occupa di raccogliere i tempi dei timer e 
+ * 			gestisce lo switch con delay
+ * 
+ */
+void ReleLib::runEngine()
+{
+	if(_setupDone)
+	{
+		if(_cycleTimer == 0)
+		{
+			_cycleTimer = millis();
+		}
+		if(millis() - _cycleTimer >= _ENGINE_CYCLE)
+		{
+			_cycleTimer = 0;
+			if(_releStatus == RELE_ON)
+			{
+				_onTimer++;
+			}
+			else
+			{
+				_offTimer++;
+			}
+			if(_delayedSwitchEnabled)
+			{
+				if(_delayedSwitchTimer == 0)
+				{
+					_delayedSwitchTimer = millis();
+				}
+				if(millis() - _delayedSwitchTimer >= _delaySwitchTimeout)
+				{
+					switchStatus(_delayedSwitchNewStatus);
+					_delayedSwitchEnabled = false;
+				}
+			}
+		}
 	}
 }

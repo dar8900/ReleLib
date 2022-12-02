@@ -3,25 +3,34 @@
 
 #include <Arduino.h>
 
-#define STATUS_OFF	0
-#define STATUS_ON	1
+#define RELE_OFF	false
+#define RELE_ON		true
 
-class RELE_LIB
+class ReleLib
 {
 	public:
-		// uint32_t *releTimers;
-		uint8_t *releStatus;
-		void begin(uint8_t NumberOfRele = 1);
-		void setReleStatus(uint8_t WichRele, uint8_t Status);
-		void turnAllRele(uint8_t Status);
-		uint8_t getReleStatus(uint8_t WichRele);
-		void getAllreleStatus(uint8_t *StatusArray);
-		void pulseRele(uint8_t RelePin, uint16_t PulseDelayMs, uint8_t EndStatus);
-		void toggleStatusByTimer(void);
+		void setup(int RelePin = -1);
+		void switchStatus(bool NewStatus);
+		void toggleStatus();
+		bool getStatus();
+		uint32_t getOnTime();
+		uint32_t getOffTime();
+		void setDelayedSwitch(uint16_t Delay, bool NewStatus);
+		void runEngine();
 		
 	private:
-	uint8_t nRele;
-	// uint32_t *oldReleTimer;
+		bool _setupDone = false;
+		int _relePin = -1;
+		bool _releStatus = RELE_OFF;
+		const uint16_t _ENGINE_CYCLE = 100; // in ms
+		uint32_t _cycleTimer = 0;
+		uint32_t _onTimer = 0;
+		uint32_t _offTimer = 0;
+		uint32_t _delayedSwitchTimer = 0;
+		uint16_t _delaySwitchTimeout = 0;
+		bool _delayedSwitchEnabled = false;
+		bool _delayedSwitchNewStatus = RELE_OFF;
+		void _switchRele(bool Status);
 };
 
 
