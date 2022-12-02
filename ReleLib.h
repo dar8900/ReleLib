@@ -30,7 +30,7 @@ class ReleLib
 		uint16_t _delaySwitchTimeout = 0;
 		bool _delayedSwitchEnabled = false;
 		bool _delayedSwitchNewStatus = RELE_OFF;
-		void _switchRele(bool Status);
+		void _switchRele();
 };
 
 
