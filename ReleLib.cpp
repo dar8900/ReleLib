@@ -17,7 +17,7 @@ void ReleLib::_switchRele()
  * 
  * @param int RelePin 
  */
-void ReleLib::setup(int RelePin = -1)
+void ReleLib::setup(int RelePin)
 {
 	if(RelePin > 0)
 	{
